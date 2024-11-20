@@ -1,0 +1,21 @@
+package <%= packageName %>.models;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import java.time.LocalDate;
+
+@Entity
+@Data
+@Table(name = "<%= tableName %>")
+public class <%= modelName %> {
+    <% fields.forEach(field => { %>
+    <% if (field.isPrimaryKey) { %>
+    @Id
+    <% if (field.isAutoIncrement) { %>
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    <% } %>
+    <% } %>
+    @Column(name = "<%= field.columnName %>")
+    private <%= field.javaType %> <%= field.fieldName %>;
+    <% }) %>
+}

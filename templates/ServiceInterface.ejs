@@ -1,0 +1,9 @@
+package <%= packageName %>.services;
+
+import java.util.List;
+import <%= packageName %>.models.<%= modelName %>;
+
+public interface I<%= modelName %>Service {
+    List<<%= modelName %>> findAll();
+    <%= modelName %> save(<%= modelName %> entity);
+}

@@ -1,0 +1,7 @@
+package <%= packageName %>.repositories;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import <%= packageName %>.models.<%= modelName %>;
+
+public interface <%= className %>Repository extends JpaRepository<<%= modelName %>, Long> {
+}

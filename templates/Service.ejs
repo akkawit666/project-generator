@@ -1,0 +1,25 @@
+package <%= packageName %>.services.impl;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import <%= packageName %>.models.<%= modelName %>;
+import <%= packageName %>.repositories.I<%= modelName %>Repository;
+import <%= packageName %>.services.I<%= modelName %>Service;
+
+@Service
+public class <%= modelName %>Service implements I<%= modelName %>Service {
+
+    @Autowired
+    private I<%= modelName %>Repository repository;
+
+    @Override
+    public List<<%= modelName %>> findAll() {
+        return repository.findAll();
+    }
+
+    @Override
+    public <%= modelName %> save(<%= modelName %> entity) {
+        return repository.save(entity);
+    }
+}

@@ -1,0 +1,25 @@
+package <%= packageName %>.controllers;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import <%= packageName %>.models.<%= modelName %>;
+import <%= packageName %>.services.I<%= modelName %>Service;
+
+@RestController
+@RequestMapping("/api/<%= modelName.toLowerCase() %>")
+public class <%= modelName %>Controller {
+
+    @Autowired
+    private I<%= modelName %>Service service;
+
+    @GetMapping
+    public List<<%= modelName %>> getAll() {
+        return service.findAll();
+    }
+
+    @PostMapping
+    public <%= modelName %> create(@RequestBody <%= modelName %> entity) {
+        return service.save(entity);
+    }
+}
