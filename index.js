@@ -38,10 +38,10 @@ const toCamelCaseField = (str) => {
 (async function () {
     const answers = await inquirer.prompt([
         { name: 'dbType', type: 'list', choices: ['mysql', 'postgresql', 'oracle'], message: 'Database type:' },
-        { name: 'host', type: 'input', message: 'Database host:', default: 'localhost' },
+        { name: 'host', type: 'input', message: 'Database host:' },
         { name: 'port', type: 'input', message: 'Database port (default: depends on database type):', default: (answers) => {
             switch (answers.dbType) {
-                case 'mysql': return 3306;
+                case 'mysql': return 6603;
                 case 'postgresql': return 5432;
                 case 'oracle': return 1521;
             }
@@ -79,6 +79,7 @@ const toCamelCaseField = (str) => {
         },
     ]);
 
+    // สร้าง connection string ตามฐานข้อมูลที่เลือก
     let connectionString = '';
     if (answers.dbType === 'mysql') {
         connectionString = `mysql://${answers.username}:${answers.password}@${answers.host}:${answers.port}/${answers.databaseName}`;
@@ -92,26 +93,7 @@ const toCamelCaseField = (str) => {
         }
     }
 
-    try {
-        if (answers.dbType === 'oracle') {
-            const oracledb = (await import('oracledb')).default;
-    
-            oracledb.initOracleClient(/* {
-                libDir: '',
-            } */);
-    
-            sequelize = new Sequelize(connectionString, {
-                dialect: 'oracle',
-                dialectModule: oracledb,
-            });
-        } else {
-            sequelize = new Sequelize(connectionString, { dialect: answers.dbType });
-        }
-    } catch (err) {
-        console.error('Error initializing Sequelize:', err);
-        process.exit(1);
-    }
-
+    const sequelize = new Sequelize(connectionString, { dialect: answers.dbType });
     const outputDir = path.resolve(answers.outputDir, 'src', 'main', 'java');
     const packageDir = path.join(outputDir, ...answers.packageName.split('.'));
 
