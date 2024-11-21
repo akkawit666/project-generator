@@ -11,12 +11,26 @@ const __dirname = path.dirname(__filename);
 const demoZipPath = path.join(__dirname, 'demo');
 
 const typeMap = {
-    INTEGER: 'int',
-    BIGINT: 'Long',
-    VARCHAR: 'String',
-    TEXT: 'String',
-    BOOLEAN: 'boolean',
-    DATE: 'LocalDate',
+    integer: 'Integer',         // PostgreSQL
+    int: 'Integer',             // MySQL, MSSQL
+    bigint: 'Long',             // Suitable for large integer values
+    smallint: 'Short',          // Smaller integers
+    varchar: 'String',          // Variable-length string
+    nvarchar: 'String',         // Unicode variable-length string (MSSQL)
+    text: 'String',             // Text fields
+    boolean: 'Boolean',         // Boolean values
+    date: 'LocalDate',          // SQL DATE to java.time.LocalDate
+    datetime: 'LocalDateTime',  // SQL DATETIME to java.time.LocalDateTime
+    timestamp: 'Instant',       // SQL TIMESTAMP to java.time.Instant
+    double: 'Double',           // Floating-point numbers
+    float: 'Float',             // Single-precision floating-point numbers
+    numeric: 'BigDecimal',      // Arbitrary precision numbers
+    decimal: 'BigDecimal',      // Alias for numeric
+    json: 'String',             // JSON usually serialized/deserialized as a String
+    char: 'String',             // Single character or fixed-length string
+    blob: 'byte[]',             // Binary large object
+    clob: 'String',             // Character large object, treated as a String
+    uuid: 'UUID',               // Universally Unique Identifier
 };
 
 // ฟังก์ชันสำหรับการแปลงชื่อไฟล์ให้เป็น CamelCase หลัง "_"
@@ -37,11 +51,11 @@ const toCamelCaseField = (str) => {
 
 (async function () {
     const answers = await inquirer.prompt([
-        { name: 'dbType', type: 'list', choices: ['mysql', 'postgresql', 'oracle'], message: 'Database type:' },
+        { name: 'dbType', type: 'list', choices: ['mysql', 'postgresql', 'oracle', 'sqlserver'], message: 'Database type:' },
         { name: 'host', type: 'input', message: 'Database host:' },
         { name: 'port', type: 'input', message: 'Database port (default: depends on database type):', default: (answers) => {
             switch (answers.dbType) {
-                case 'mysql': return 6603;
+                case 'mysql': return 3306;
                 case 'postgresql': return 5432;
                 case 'oracle': return 1521;
             }
@@ -91,9 +105,18 @@ const toCamelCaseField = (str) => {
         } else {
             connectionString = `oracle://${answers.username}:${answers.password}@${answers.host}:${answers.port}/${answers.databaseName}`;
         }
+    } else if (answers.dbType === 'sqlserver') {
+        connectionString = `mssql://${answers.username}:${answers.password}@${answers.host}:${answers.port}/${answers.databaseName}`;
     }
 
-    const sequelize = new Sequelize(connectionString, { dialect: answers.dbType });
+    const sequelize = new Sequelize(connectionString, {
+        dialect: 
+            answers.dbType === 'mysql' ? 'mysql' :
+            answers.dbType === 'postgresql' ? 'postgres' :
+            answers.dbType === 'oracle' ? 'oracle' :
+            answers.dbType === 'sqlserver' ? 'mssql' :
+            undefined,
+    });
     const outputDir = path.resolve(answers.outputDir, 'src', 'main', 'java');
     const packageDir = path.join(outputDir, ...answers.packageName.split('.'));
 
@@ -112,14 +135,36 @@ const toCamelCaseField = (str) => {
 
         for (const table of selectedTables) {
             const columns = await sequelize.getQueryInterface().describeTable(table);
-            const fields = Object.entries(columns).map(([columnName, columnDef]) => ({
-                columnName,
-                fieldName: toCamelCaseField(columnName),
-                javaType: typeMap[columnDef.type.split('(')[0]] || 'Object',
-                isPrimaryKey: columnDef.primaryKey || false,
-                isAutoIncrement: columnDef.autoIncrement || false,
-            }));
+
+            const fields = Object.entries(columns).map(([columnName, columnDef]) => {
+                const sqlType = (columnDef.type || '').toLowerCase().split('(')[0];
+                const javaType = typeMap[sqlType] || 'Object'; // Fallback to 'Object' if type is unmapped
+                if (!typeMap[sqlType]) {
+                    console.warn(`Unmapped SQL type: ${sqlType}`); // Log unmapped types for debugging
+                }
+                // column and field names must not has space or blank inside string
+                
+                return {
+                    columnName,
+                    fieldName: toCamelCaseField(columnName),
+                    javaType,
+                    isPrimaryKey: columnDef.primaryKey || false,
+                    isAutoIncrement: columnDef.autoIncrement || false,
+                };
+            });
+            
+            // Add a fallback primary key if none is specified
+            if (!fields.some(f => f.isPrimaryKey) && fields.length > 0) {
+                fields[0].isPrimaryKey = true;
+            }
+
             const modelName = toCamelCase(table);
+
+            // must be String or Long or Integer
+            let keyType = fields.find(f => f.isPrimaryKey)?.javaType || 'Long';
+            if (keyType !== 'String' && keyType !== 'Long' && keyType !== 'int') {
+                keyType = 'Integer';
+            }
 
             // Render templates
             const templates = ['Model', 'Repository', 'Service', 'ServiceInterface', 'Controller'];
@@ -151,7 +196,7 @@ const toCamelCaseField = (str) => {
                 }
                 const content = await ejs.renderFile(
                     path.join(__dirname, 'templates', `${template}.ejs`),
-                    { packageName: answers.packageName, modelName, fields, className, tableName: table }
+                    { packageName: answers.packageName, modelName, fields, className, tableName: table, keyType }
                 );
                 await fs.ensureDir(dir);
                 await fs.writeFile(path.join(dir, fileName), content);

@@ -1,0 +1,8 @@
+output/
+node_modules/
+.DS_Store
+.env
+!.env.example
+!demo/.gitignore
+!demo/.gitattributes
+!demo/.mvn
